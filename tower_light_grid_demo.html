@@ -405,6 +405,7 @@
         <p class="sub">單塔 8 x 8 窗格，window 100 x 190cm，沒有垂直框，水平白框 10cm，燈點直徑 4cm。上傳 JPG / PNG / MP4 後會直接取代預設海浪，映射成 20cm 點陣效果。</p>
       </div>
       <div class="controls" aria-label="顯示控制">
+        <button id="toggleFixture" type="button" aria-pressed="true">Fixture 精準：開</button>
         <button id="toggleWhiteFrame" type="button" aria-pressed="true">橫白框：開</button>
         <button id="toggleZoom" type="button" aria-pressed="false">放大燈點</button>
         <button id="toggleMotion" type="button" aria-pressed="false">暫停動畫</button>
@@ -429,11 +430,11 @@
                 </select>
               </span>
               <span class="control-group">
-                亮度
-                <input id="mediaGain" type="range" min="0.4" max="2.2" step="0.05" value="1.15">
+                亮度 / Dimmer
+                <input id="mediaGain" type="range" min="0.4" max="2.2" step="0.05" value="1">
               </span>
             </div>
-            <div class="status" id="mediaStatus">目前使用預設藍色潮汐海浪。上傳素材後，系統會先壓成 41 x 81 的低解析網格，再顯示到燈點上。</div>
+            <div class="status" id="mediaStatus">目前使用預設藍色潮汐海浪。Fixture 精準模式會以 41 x 81 點位取樣，不加 glow、不加自動對比。</div>
           </div>
 
           <div class="panel">
@@ -448,7 +449,7 @@
         </section>
 
         <div class="note">
-          預設海浪走藍色潮汐與流光，不含生物圖形。上傳平面生物圖或 MP4 動態後，請把它當成「實際 20cm 點陣預覽」看：細節會被抽掉，只有大輪廓、亮暗節奏與移動方向會保留下來。
+          給視覺測試生物時，建議開啟 Fixture 精準模式、亮度維持 1.0，並讓 MadMapper 的素材比例與這裡的映射方式一致。此模式會用 41 寬 x 81 高的點位取樣，盡量接近 fixture 直接吃 video 的效果。
         </div>
       </aside>
 
@@ -501,8 +502,8 @@
         <article class="card">
           <div class="card-head">
             <div>
-              <h2>20cm 平均版</h2>
-              <span class="tag live">預設海浪 / 上傳媒體測試</span>
+              <h2>20cm Fixture 版</h2>
+              <span class="tag live">41 x 81 點位取樣</span>
             </div>
             <span class="tag">燈點直徑 ${config.dotDiameter}cm</span>
           </div>
@@ -517,6 +518,7 @@
 
     const canvas = document.querySelector("#towerCanvas");
     const ctx = canvas.getContext("2d");
+    const toggleFixture = document.querySelector("#toggleFixture");
     const toggleWhiteFrame = document.querySelector("#toggleWhiteFrame");
     const toggleZoom = document.querySelector("#toggleZoom");
     const toggleMotion = document.querySelector("#toggleMotion");
@@ -537,14 +539,25 @@
       media: null,
       mediaKind: "preset",
       mediaName: "",
+      fixtureMode: true,
       fit: "cover",
-      gain: 1.15,
+      gain: 1,
       lastFrame: 0,
       cssWidth: 0,
       cssHeight: 0,
       dpr: 1,
       scale: 1
     };
+
+    toggleFixture.addEventListener("click", () => {
+      state.fixtureMode = !state.fixtureMode;
+      toggleFixture.setAttribute("aria-pressed", String(state.fixtureMode));
+      toggleFixture.textContent = state.fixtureMode ? "Fixture 精準：開" : "Fixture 精準：關";
+      mediaStatus.textContent = state.fixtureMode
+        ? "Fixture 精準模式：41 x 81 點位取樣，不加 glow、不加自動對比。"
+        : "舞台預覽模式：保留 glow 與微幅對比增強，較接近遠看發光感。";
+      render(performance.now() / 1000);
+    });
 
     toggleWhiteFrame.addEventListener("click", () => {
       const active = document.body.classList.toggle("show-horizontal-frame");
@@ -611,7 +624,9 @@
       state.mediaKind = "preset";
       state.mediaName = "";
       mediaInput.value = "";
-      mediaStatus.textContent = "目前使用預設藍色潮汐海浪。上傳素材後，系統會先壓成 41 x 81 的低解析網格，再顯示到燈點上。";
+      mediaStatus.textContent = state.fixtureMode
+        ? "目前使用預設藍色潮汐海浪。Fixture 精準模式會以 41 x 81 點位取樣，不加 glow、不加自動對比。"
+        : "目前使用預設藍色潮汐海浪。舞台預覽模式會保留 glow 與微幅對比增強。";
       render(performance.now() / 1000);
     }
 
@@ -637,7 +652,7 @@
         video.addEventListener("loadeddata", () => {
           state.media = video;
           state.mediaKind = "video";
-          mediaStatus.textContent = `已載入 MP4：${file.name}，正在以 ${gridW} x ${gridH} 點陣取樣播放。`;
+          mediaStatus.textContent = `已載入 MP4：${file.name}，正在以 ${gridW} x ${gridH} 點位取樣播放。`;
           video.play().catch(() => {});
           render(performance.now() / 1000);
         }, { once: true });
@@ -652,7 +667,7 @@
       image.onload = () => {
         state.media = image;
         state.mediaKind = "image";
-        mediaStatus.textContent = `已載入圖片：${file.name}，已壓成 ${gridW} x ${gridH} 點陣取樣。`;
+        mediaStatus.textContent = `已載入圖片：${file.name}，已壓成 ${gridW} x ${gridH} 點位取樣。`;
         render(performance.now() / 1000);
       };
       image.onerror = () => {
@@ -700,7 +715,7 @@
         drawY = (gridH - drawH) / 2;
       }
 
-      sampleCtx.imageSmoothingEnabled = true;
+      sampleCtx.imageSmoothingEnabled = !state.fixtureMode;
       sampleCtx.drawImage(state.media, drawX, drawY, drawW, drawH);
       return sampleCtx.getImageData(0, 0, gridW, gridH).data;
     }
@@ -735,6 +750,17 @@
       let r = mediaPixels[index] / 255;
       let g = mediaPixels[index + 1] / 255;
       let b = mediaPixels[index + 2] / 255;
+
+      if (state.fixtureMode) {
+        r = clamp(r * alpha * state.gain, 0, 1);
+        g = clamp(g * alpha * state.gain, 0, 1);
+        b = clamp(b * alpha * state.gain, 0, 1);
+        return {
+          fill: `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`,
+          opacity: 1
+        };
+      }
+
       r = clamp((r - 0.5) * contrast + 0.5, 0, 1);
       g = clamp((g - 0.5) * contrast + 0.5, 0, 1);
       b = clamp((b - 0.5) * contrast + 0.5, 0, 1);
@@ -849,11 +875,13 @@
           ? presetWaveColor(dot, time)
           : mediaColor(dot, mediaPixels);
 
-        ctx.fillStyle = color.fill;
-        ctx.globalAlpha = Number(color.opacity) * 0.22;
-        ctx.beginPath();
-        ctx.arc(dot.x, dot.y, radius * 3.1, 0, Math.PI * 2);
-        ctx.fill();
+        if (!state.fixtureMode) {
+          ctx.fillStyle = color.fill;
+          ctx.globalAlpha = Number(color.opacity) * 0.22;
+          ctx.beginPath();
+          ctx.arc(dot.x, dot.y, radius * 3.1, 0, Math.PI * 2);
+          ctx.fill();
+        }
 
         ctx.globalAlpha = Number(color.opacity);
         ctx.beginPath();
