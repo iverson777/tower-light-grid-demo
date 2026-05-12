@@ -433,8 +433,12 @@
                 亮度 / Dimmer
                 <input id="mediaGain" type="range" min="0.4" max="2.2" step="0.05" value="1">
               </span>
+              <span class="control-group">
+                現場光暈
+                <input id="haloGain" type="range" min="0" max="1.6" step="0.05" value="0.75">
+              </span>
             </div>
-            <div class="status" id="mediaStatus">目前使用預設藍色潮汐海浪。Fixture 精準模式會以 41 x 81 點位取樣，不加 glow、不加自動對比。</div>
+            <div class="status" id="mediaStatus">目前使用預設藍色潮汐海浪。Fixture 精準模式會以 41 x 81 點位取樣；現場光暈只影響肉眼預覽，不改變每顆燈的取樣顏色。</div>
           </div>
 
           <div class="panel">
@@ -449,7 +453,7 @@
         </section>
 
         <div class="note">
-          給視覺測試生物時，建議開啟 Fixture 精準模式、亮度維持 1.0，並讓 MadMapper 的素材比例與這裡的映射方式一致。此模式會用 41 寬 x 81 高的點位取樣，盡量接近 fixture 直接吃 video 的效果。
+          給視覺測試生物時，建議開啟 Fixture 精準模式、亮度維持 1.0，並讓 MadMapper 的素材比例與這裡的映射方式一致。現場是自發光點光源，所以可用現場光暈調整肉眼看到的暈開程度。
         </div>
       </aside>
 
@@ -526,6 +530,7 @@
     const clearMedia = document.querySelector("#clearMedia");
     const fitMode = document.querySelector("#fitMode");
     const mediaGain = document.querySelector("#mediaGain");
+    const haloGain = document.querySelector("#haloGain");
     const mediaStatus = document.querySelector("#mediaStatus");
 
     const sampleCanvas = document.createElement("canvas");
@@ -542,6 +547,7 @@
       fixtureMode: true,
       fit: "cover",
       gain: 1,
+      halo: 0.75,
       lastFrame: 0,
       cssWidth: 0,
       cssHeight: 0,
@@ -554,8 +560,8 @@
       toggleFixture.setAttribute("aria-pressed", String(state.fixtureMode));
       toggleFixture.textContent = state.fixtureMode ? "Fixture 精準：開" : "Fixture 精準：關";
       mediaStatus.textContent = state.fixtureMode
-        ? "Fixture 精準模式：41 x 81 點位取樣，不加 glow、不加自動對比。"
-        : "舞台預覽模式：保留 glow 與微幅對比增強，較接近遠看發光感。";
+        ? "Fixture 精準模式：41 x 81 點位取樣；光暈只做肉眼預覽，不改變每顆燈的取樣顏色。"
+        : "舞台預覽模式：保留微幅對比增強與光暈，較接近遠看發光感。";
       render(performance.now() / 1000);
     });
 
@@ -595,6 +601,11 @@
       render(performance.now() / 1000);
     });
 
+    haloGain.addEventListener("input", () => {
+      state.halo = Number(haloGain.value);
+      render(performance.now() / 1000);
+    });
+
     mediaInput.addEventListener("change", () => {
       const file = mediaInput.files && mediaInput.files[0];
       if (!file) {
@@ -625,8 +636,8 @@
       state.mediaName = "";
       mediaInput.value = "";
       mediaStatus.textContent = state.fixtureMode
-        ? "目前使用預設藍色潮汐海浪。Fixture 精準模式會以 41 x 81 點位取樣，不加 glow、不加自動對比。"
-        : "目前使用預設藍色潮汐海浪。舞台預覽模式會保留 glow 與微幅對比增強。";
+        ? "目前使用預設藍色潮汐海浪。Fixture 精準模式會以 41 x 81 點位取樣；現場光暈只影響肉眼預覽。"
+        : "目前使用預設藍色潮汐海浪。舞台預覽模式會保留微幅對比增強與光暈。";
       render(performance.now() / 1000);
     }
 
@@ -874,12 +885,13 @@
         const color = state.mediaKind === "preset"
           ? presetWaveColor(dot, time)
           : mediaColor(dot, mediaPixels);
+        const halo = state.halo;
 
-        if (!state.fixtureMode) {
+        if (halo > 0) {
           ctx.fillStyle = color.fill;
-          ctx.globalAlpha = Number(color.opacity) * 0.22;
+          ctx.globalAlpha = Number(color.opacity) * (state.fixtureMode ? 0.16 : 0.22) * halo;
           ctx.beginPath();
-          ctx.arc(dot.x, dot.y, radius * 3.1, 0, Math.PI * 2);
+          ctx.arc(dot.x, dot.y, radius * (2.2 + halo * 1.5), 0, Math.PI * 2);
           ctx.fill();
         }
 
