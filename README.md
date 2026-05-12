@@ -8,6 +8,10 @@ GitHub Pages 啟用後，預計可用以下網址測試：
 
 https://iverson777.github.io/tower-light-grid-demo/
 
+若瀏覽器快取到舊版，可直接開最新版檔案：
+
+https://iverson777.github.io/tower-light-grid-demo/tower_light_grid_demo_v20260512.html
+
 ## 目前模擬規格
 
 - 單塔：8m x 16.1m
@@ -72,4 +76,5 @@ Fixture 精準模式是給 MadMapper fixture mapping 前的素材檢查用。此
 
 - `index.html`：GitHub Pages 入口，會自動導到 demo。
 - `tower_light_grid_demo.html`：主要互動測試頁。
+- `tower_light_grid_demo_v20260512.html`：避免瀏覽器快取的最新版測試頁。
 - `README.md`：專案說明。
