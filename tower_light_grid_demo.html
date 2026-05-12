@@ -435,7 +435,7 @@
               </span>
               <span class="control-group">
                 現場光暈
-                <input id="haloGain" type="range" min="0" max="1.6" step="0.05" value="0.75">
+                <input id="haloGain" type="range" min="0" max="1.8" step="0.05" value="1.1">
               </span>
             </div>
             <div class="status" id="mediaStatus">目前使用預設藍色潮汐海浪。Fixture 精準模式會以 41 x 81 點位取樣；現場光暈只影響肉眼預覽，不改變每顆燈的取樣顏色。</div>
@@ -547,7 +547,7 @@
       fixtureMode: true,
       fit: "cover",
       gain: 1,
-      halo: 0.75,
+      halo: 1.1,
       lastFrame: 0,
       cssWidth: 0,
       cssHeight: 0,
@@ -703,7 +703,7 @@
     function drawMediaToGrid() {
       sampleCtx.setTransform(1, 0, 0, 1, 0, 0);
       sampleCtx.clearRect(0, 0, gridW, gridH);
-      sampleCtx.fillStyle = "rgb(0, 5, 18)";
+      sampleCtx.fillStyle = "rgb(0, 0, 0)";
       sampleCtx.fillRect(0, 0, gridW, gridH);
 
       const { width: sourceW, height: sourceH } = sourceSize(state.media);
@@ -734,18 +734,20 @@
     function presetWaveColor(dot, time) {
       const nx = dot.x / width;
       const ny = dot.y / height;
-      const tideA = Math.sin((ny * 4.6 - time * 0.16 + Math.sin(nx * 6.8 + time * 0.72) * 0.13) * Math.PI * 2);
-      const tideB = Math.sin((ny * 7.8 + nx * 1.1 - time * 0.26 + Math.sin(nx * 10.4 - time * 0.40) * 0.08) * Math.PI * 2);
-      const longSwell = 0.5 + 0.5 * Math.sin((ny * 1.45 + nx * 0.72 - time * 0.055) * Math.PI * 2);
-      const caustic = Math.pow(Math.max(0, Math.sin(nx * 31 + ny * 17 - time * 2.4)), 5)
-        * Math.pow(Math.max(0, Math.sin(nx * 11 - ny * 14 + time * 1.65)), 2);
-      const foam = Math.pow(Math.max(0, tideA), 4) * 0.72 + Math.pow(Math.max(0, tideB), 7) * 0.38;
+      const speed = state.fixtureMode ? 1.55 : 1;
+      const tideA = Math.sin((ny * 4.6 - time * 0.16 * speed + Math.sin(nx * 6.8 + time * 0.72 * speed) * 0.13) * Math.PI * 2);
+      const tideB = Math.sin((ny * 7.8 + nx * 1.1 - time * 0.26 * speed + Math.sin(nx * 10.4 - time * 0.40 * speed) * 0.08) * Math.PI * 2);
+      const longSwell = 0.5 + 0.5 * Math.sin((ny * 1.45 + nx * 0.72 - time * 0.055 * speed) * Math.PI * 2);
+      const caustic = Math.pow(Math.max(0, Math.sin(nx * 31 + ny * 17 - time * 2.4 * speed)), 5)
+        * Math.pow(Math.max(0, Math.sin(nx * 11 - ny * 14 + time * 1.65 * speed)), 2);
+      const foam = Math.pow(Math.max(0, tideA), 4) * 0.82 + Math.pow(Math.max(0, tideB), 7) * 0.48;
       const depthFade = 0.52 + 0.48 * (1 - Math.abs(ny - 0.52));
-      const level = clamp(0.11 + longSwell * 0.20 + foam * 0.72 + caustic * 0.44, 0, 1);
+      const motionPulse = state.fixtureMode ? Math.pow(0.5 + 0.5 * Math.sin((nx * 2.5 + ny * 1.2 - time * 0.38 * speed) * Math.PI * 2), 2) * 0.12 : 0;
+      const level = clamp(0.10 + longSwell * 0.20 + foam * 0.78 + caustic * 0.50 + motionPulse, 0, 1);
       const hue = 219 - level * 34;
       const saturation = 78 + level * 16;
       const light = 13 + level * 58 * depthFade;
-      const opacity = 0.32 + level * 0.62;
+      const opacity = 0.26 + level * (state.fixtureMode ? 0.74 : 0.62);
       return { fill: `hsl(${hue}, ${saturation}%, ${light}%)`, opacity };
     }
 
@@ -847,22 +849,26 @@
     function drawArchitecture() {
       ctx.globalAlpha = 1;
       ctx.setLineDash([]);
+      const hasUploadedMedia = state.mediaKind !== "preset";
+      const windowFill = hasUploadedMedia ? "#000000" : "#102f45";
+      const windowStroke = hasUploadedMedia ? "rgba(255, 255, 255, 0.18)" : "#245772";
+      const guideStroke = hasUploadedMedia ? "rgba(255, 255, 255, 0.12)" : "rgba(36, 87, 114, 0.55)";
 
       if (document.body.classList.contains("show-horizontal-frame")) {
         ctx.fillStyle = "#d7dee4";
         ctx.fillRect(0, 0, width, height);
         for (let row = 0; row < config.rows; row += 1) {
           const y = config.frameY + row * (config.windowH + config.frameY);
-          ctx.fillStyle = "#102f45";
+          ctx.fillStyle = windowFill;
           ctx.fillRect(0, y, width, config.windowH);
-          ctx.strokeStyle = "#245772";
+          ctx.strokeStyle = windowStroke;
           ctx.lineWidth = 1.2;
           ctx.strokeRect(0, y, width, config.windowH);
         }
       } else {
-        ctx.fillStyle = "#102f45";
+        ctx.fillStyle = windowFill;
         ctx.fillRect(0, 0, width, height);
-        ctx.strokeStyle = "rgba(36, 87, 114, 0.55)";
+        ctx.strokeStyle = guideStroke;
         ctx.lineWidth = 1;
         for (let row = 1; row < config.rows; row += 1) {
           const y = row * (config.windowH + config.frameY);
@@ -889,9 +895,9 @@
 
         if (halo > 0) {
           ctx.fillStyle = color.fill;
-          ctx.globalAlpha = Number(color.opacity) * (state.fixtureMode ? 0.16 : 0.22) * halo;
+          ctx.globalAlpha = Number(color.opacity) * (state.fixtureMode ? 0.25 : 0.22) * halo;
           ctx.beginPath();
-          ctx.arc(dot.x, dot.y, radius * (2.2 + halo * 1.5), 0, Math.PI * 2);
+          ctx.arc(dot.x, dot.y, radius * (2.5 + halo * 1.6), 0, Math.PI * 2);
           ctx.fill();
         }
 
@@ -950,7 +956,7 @@
 
     function animate(now) {
       requestAnimationFrame(animate);
-      if (state.paused || now - state.lastFrame < 72) {
+      if (state.paused || now - state.lastFrame < 42) {
         return;
       }
 
